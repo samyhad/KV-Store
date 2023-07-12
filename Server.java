@@ -21,7 +21,7 @@ public class Server {
     private int port;
     private String ipAddress;
     private Boolean isLeader;
-    private InetSocketAddress 
+    private InetSocketAddress LeaderAddress; 
 
     private static void setPort (int port){
         this.port = port;
@@ -47,8 +47,17 @@ public class Server {
         setIpAddress(scanner.nextLine());
         System.out.println("Qual a porta desse servidor?");
         setPort(scanner.nextInt());
-
+        
         InetSocketAddress endereco = new InetSocketAddress(getIpAddress(), getPort());
+        
+        System.out.println("Esse servidor será o servidor líder? (S|N)");
+        if(scanner.nextLine() == "S"){
+            
+        } else {
+            
+        }
+
+        
         ServerSocket serverSocket = new ServerSocket();
         serverSocket.bind(endereco);
         
