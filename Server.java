@@ -17,18 +17,43 @@ import java.net.Socket;
 
 public class Server {
 
+    private Hashtable<Integer, String> hashTableKV;
+    private int port;
+    private String ipAddress;
+    private Boolean isLeader;
+    private InetSocketAddress 
+
+    private static void setPort (int port){
+        this.port = port;
+    }
+
+    private static int getPort (
+        return this.port;
+    ) 
+
+    private static void setIpAddress (int ipAddress){
+        this.ipAddress = ipAddress;
+    }
+
+    private static int getIpAddress (
+        return this.ipAddress;
+    ) 
+
     public static void main(String[] args) throws Exception{
 
         Scanner scanner = new Scanner(System.in);
-        //scanner.nextLine();
-        //System.out.println("Qual o IP desse peer?");
-        //address_str = scanner.nextLine();
-        //System.out.println("Qual a porta desse peer?");
-        //porta = scanner.nextInt();
-        
-        ServerSocket serverSocket = new ServerSocket(10099);
-        InetAddress address = serverSocket.getInetAddress();
+        scanner.nextLine();
+        System.out.println("Qual o IP desse servidor?");
+        setIpAddress(scanner.nextLine());
+        System.out.println("Qual a porta desse servidor?");
+        setPort(scanner.nextInt());
 
+        InetSocketAddress endereco = new InetSocketAddress(getIpAddress(), getPort());
+        ServerSocket serverSocket = new ServerSocket();
+        serverSocket.bind(endereco);
+        
+        //ServerSocket serverSocket = new ServerSocket(10099);
+        
         //10097, 10098 e 10099
 
         while(true) {
