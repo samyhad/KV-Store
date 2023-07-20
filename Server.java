@@ -71,26 +71,20 @@ public class Server {
         } else if (scanner.nextLine() == "N"){
             server.isLeader =  false;
             System.out.println("Qual o IP do líder?");
-            server.setIpAddress(scanner.nextLine());
+            String leaderIp = scanner.nextLine();
             System.out.println("Qual a porta do líder?");
-            server.setPort(scanner.nextInt());
+            int leaderPort = scanner.nextInt();
+            Peer peerLeader = new Peer( InetAddress.getByName(leaderIp), leaderPort, true);
+            servers.add(peerLeader);
         }
 
         ServerSocket serverSocket = new ServerSocket();
         serverSocket.bind(endereco);
 
         peer = new Peer(serverSocket.getInetAddress(), server.port, server.getIsLeader());
-
-
-
-        connectWithLeader(peer);
         
+        servers.add(peer);
 
-
-        
-        //ServerSocket serverSocket = new ServerSocket(10099);
-        
-        //10097, 10098 e 10099
 
         
       
@@ -98,12 +92,12 @@ public class Server {
 
     public static void connectWithLeader(Peer peer) throws IOException{
         // Criando o socket - conexão TCP entre os dois servidores
-        Socket socket_conn = new Socket(ipPeer, portaPeer);
+        Socket socket_conn = new Socket(peer.IP, peer.PORTA);
         socket_conn.close();
     }
 
-    public static void connectWithOthersServer (String ipPeer, int portaPeer){
-        Socket socket_conn = new Socket(ipPeer, portaPeer);
+    public static void connectWithOthersServer (Peer peer) throws IOException{
+        Socket socket_conn = new Socket(peer.IP, peer.PORTA);
         socket_conn.close();
     }
 }
