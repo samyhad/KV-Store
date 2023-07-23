@@ -16,11 +16,13 @@ import java.rmi.NotBoundException;
 import java.rmi.server.ServerNotActiveException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Hashtable;
 import java.util.InputMismatchException;
 import java.util.Random;
 import java.util.Scanner;
 
 public class Cliente {
+    public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV;
     public static ArrayList<Servidor> servers = new ArrayList<>();
     public static Scanner scanner;
     public static String IP;
@@ -32,12 +34,17 @@ public class Cliente {
         scanner = new Scanner(System.in);
 
         //chamando o método do Menu interativo
-        menu();
+        try {
+            menu();
+        } catch (ClassNotFoundException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
         
 
     }
 
-    public static void menu() throws IOException{
+    public static void menu() throws IOException, ClassNotFoundException{
         
         System.out.println("------------------ PEER ------------------");
         //criando uma variável que controlará o fim do loop do nosso menu interativo
@@ -94,14 +101,9 @@ public class Cliente {
                             servers.add(new Servidor(portServer, ipServer, false));
                         }
                         
-                        
-                        // Criando thread que será responsável por escutar requisições do serverSocket 
-                        // fazendo com que o peer sempre seja capaz de receber solicitação de outros peer
-                        ThreadClient th = new ThreadClient(serverSocket);
-                        th.start();
                     }
                     
-                } catch (ServerNotActiveException | IOException | NotBoundException e) {
+                } catch (IOException e) {
                     porta = -1;
                     address_str = null;
                     e.printStackTrace();
@@ -131,7 +133,7 @@ public class Cliente {
             }
             //se o usuário digitou 2 [GET]
             else if(input == 2){
-                //verificando se antes o usuário realizou requisição INIT
+                // verificando se antes o usuário realizou requisição INIT
                 if (porta == -1 && address_str == null){
                     System.out.println("Você ainda não se realizou a inicialização, faça isso e depois tente realizar o GET.");
                 }
@@ -140,40 +142,18 @@ public class Cliente {
                     scanner.nextLine();
                     System.out.println("Informe a chave: ");
                     int key = scanner.nextInt();
-                    Instant timestamp = Instant.now();
+                    Instant timestamp = null;
+                    if(retrieveValue(hashTableKV, key) != null){
+                        timestamp = retrieveValue(hashTableKV, key).values().stream().findFirst().orElse(null);
+                    }
                     
                     getRequest(key, timestamp);
                 }
             }
-            /*
-            //se o usuário digitou 2 [DOWNLOAD]
-            else if(input == 2){
-                
-                // verifica se já realizamos o JOIN
-                if(searchFile == null){
-                    System.out.println("Você ainda não pesquisou por nenhum arquivo, faça uma pesquisa antes de fazer o download");
-                }
-                // verifica se já realizamos o SEARCH
-                else if (porta == -1 && address_str == null){
-                    System.out.println("Você ainda não se juntou ao Napster, se junte e depois faça o download!");
-                }
-                else{
-                    // resgata informações necessárias para realizar o DOWNLOAD
-                    scanner.nextLine();
-                    System.out.println("Qual o IP do peer que tem esse arquivo?");
-                    String ipStrSearch = scanner.nextLine(); // IP do peer que tem os arquivos
-                    
-                    System.out.println("Qual a porta do peer que tem esse arquivo?");
-                    int portaSearch = scanner.nextInt(); //porta o peer que tem os arquivos
-                    //chamando método que requisita o DOWNLOAD
-                    downloadRequest(searchFile, ipStrSearch, portaSearch);
-                }
-            }
-            */
-            // //se o usuário digitou 3 [LEAVE]
+            
+            //se o usuário digitou 3 [LEAVE]
             else if(input == 3){
                 condicao = false;
-                // excluir aparições desse Peer dentro do servidor RMI
                 System.exit(0);
             }
             // tratar opções inválidas
@@ -188,10 +168,10 @@ public class Cliente {
     }
 
 
-    private static void getRequest(int key, Instant timestamp) {
-
+    private static void getRequest(int key, Instant timestamp) throws UnknownHostException, IOException, ClassNotFoundException {
+        
         // Mensagem que queremos enviar por PUT 
-        Mensagem msgPut = new Mensagem("GET", key, timestamp);
+        Mensagem msgGet = new Mensagem("GET", key, timestamp);
         // Recuperando tamanho da lista
         int tamanhoLista = servers.size();
         // Crie um objeto da classe Random
@@ -200,13 +180,44 @@ public class Cliente {
         int idxServerPicked = random.nextInt(tamanhoLista);
         // Servidor escolhido
         Servidor server = servers.get(idxServerPicked);
-
+        // Socket para conexão TCP entre cliente e servidor
         Socket s = new Socket(server.getIpAddress(), server.getPort());
-
+        // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
         ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-
         // Serializa o objeto e envia para o servidor
-        out.writeObject(msgPut);
+        out.writeObject(msgGet);
+        // Cria um ObjectInputStream para receber objetos a partir do InputStream da conexão.
+        ObjectInputStream in = new ObjectInputStream(s.getInputStream());
+        // Recebe o objeto transmitido e realiza a deserialização
+        Mensagem msgReturn = (Mensagem) in.readObject();
+        // Caso a resposta seja PUT_OK, imprima o resultado, caso contrário, imprima um erro.
+        if (msgReturn.getStatus().equals("GET_OK")){
+            System.out.println("GET key: ["
+            + msgGet.getKey()+"] value: ["
+            + msgReturn.getValue()+"] obtido do servidor ["
+            + server.getIpAddress()+ ":" + server.getPort() +"], meu timestamp ["
+            + msgGet.gettimestamp() +"] e do servidor ["
+            + msgReturn.gettimestamp()+"]");
+        } else if (msgReturn.getStatus().equals("TRY_OTHER_SERVER_OR_LATER")){
+            if(retrieveValue(hashTableKV, msgGet.getKey()) != null) {
+                String old_value = retrieveValue(hashTableKV, msgGet.getKey()).keySet().stream().findFirst().orElse(null);
+                System.out.println("GET key: ["
+                + msgGet.getKey()+"] value: ["
+                + msgReturn.getValue()+"] obtido do servidor ["
+                + server.getIpAddress()+ ":" + server.getPort() +"], meu timestamp ["
+                + msgGet.gettimestamp() +"] e do servidor ["
+                + msgReturn.gettimestamp()+"]");
+            } else {
+                System.out.println(msgReturn.getStatus());
+            }
+        }
+        // fechando canal de entrada
+        in.close();
+        // fechando canal de saída
+        out.close();
+        // fechando socket TCP entre cliente e servidor
+        s.close();
+        
     }
 
     private static void putRequest(int key, String value) throws UnknownHostException, IOException, ClassNotFoundException {
@@ -221,103 +232,59 @@ public class Cliente {
         int idxServerPicked = random.nextInt(tamanhoLista);
         // Servidor escolhido
         Servidor server = servers.get(idxServerPicked);
-
+        // Socket para conexão TCP entre cliente e servidor
         Socket s = new Socket(server.getIpAddress(), server.getPort());
-
+        // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
         ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
-
         // Serializa o objeto e envia para o servidor
         out.writeObject(msgPut);
-
-        //espera resposta do servidor
         // Cria um ObjectInputStream para receber objetos a partir do InputStream da conexão.
         ObjectInputStream in = new ObjectInputStream(s.getInputStream());
         // Recebe o objeto transmitido e realiza a deserialização
         Mensagem msgReturn = (Mensagem) in.readObject();
+        // Caso a resposta seja PUT_OK, imprima o resultado, caso contrário, imprima um erro.
+        // Além disso, adiciona esse elemento em nossa Hashtable local
         if (msgReturn.getStatus().equals("PUT_OK")){
-            // Imprime mensagem recebida
             System.out.println("PUT_OK key: ["
                 + msgPut.getKey()+"] value ["
                 + msgPut.getValue() +"] timestamp ["
-                + msgReturn.getTimestampMillis()+"] realizada no servidor ["
+                + msgReturn.gettimestamp()+"] realizada no servidor ["
                 + server.getIpAddress()+":"
                 + server.getPort()+"]");
+            // Adicionar KV à nossa hashtable local
+            addData(hashTableKV, key, value, msgReturn.gettimestamp());
         } else {
             System.out.println("Operação de PUT falhou! Tente novamente depois.");
         }
-        
-
+        // fechando canal de entrada
         in.close();
+        // fechando canal de saída
         out.close();
+        // fechando socket TCP entre cliente e servidor
         s.close();
         
     }
 
-
-    public static class ThreadClient extends Thread{
-        
-        //Server socket utilizado nessa conexão TCP
-        public static ServerSocket serverSocket;
-
-        /**
-         * Construtor da classe
-         * @param ss serverSocket utilizado pelo peer para realizar a conexão TCP 
-         */
-        public ThreadClient(ServerSocket ss) {
-            serverSocket = ss;
+    public static void addData(Hashtable<Integer, Hashtable<String, Instant>> hashtable,
+                               int key, String value, Instant timestamp) {
+        // Verifica se a tabela hash interna (interna ao primeiro nível) já existe
+        if (!hashtable.containsKey(key)) {
+            hashtable.put(key, new Hashtable<>());
         }
 
-        /**
-         * Rodando a thread que irá escutar as solicitações bem como realizar as transferências.
-         */
-        public void run(){
-            try{
-
-                while(true) {
-                    Socket no = serverSocket.accept(); // Espera por uma conexão
-
-                    //thread para realizar trasferência entre os peer
-                    Thread th_accept = new Thread(() -> {
-                        try (InputStreamReader is = new InputStreamReader(no.getInputStream())) {
-                            BufferedReader reader = new BufferedReader(is); // fluxo de entrada de caracteres
-                            // salva nome do arquivo solitiado
-                            String fileName = reader.readLine();
-
-                            // o peer tem esse arquivo solicitado?
-                            boolean estaPresente = arquivos.contains(fileName);
-                            
-                            // fluxo de saída
-                            OutputStream os = no.getOutputStream();
-                            DataOutputStream writer = new DataOutputStream(os);
-
-                            // Se o arquivo existe, confirme isso pro peer solicitante e envie o arquivo
-                            if (estaPresente) {
-                                writer.writeBytes("OK" + '\n');
-                                String filePath = path + '\\' + fileName;
-                                sendFile(filePath, no);
-                            } else {
-                                //se esse peer não tiver esse arquivo avise o peer solicitante
-                                // cria a cadeia de saída (escrita) de informações do socket
-                                writer.writeBytes("NOK" + '\n');
-                            }
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-                    });
-                    // inicializa a thread
-                    th_accept.start();
-                }
-                
-            }catch(Exception e){
-                System.err.println(e);
-            }
-        }
+        // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
+        Hashtable<String, Instant> innerHashtable = hashtable.get(key);
+        innerHashtable.put(value, timestamp);
     }
 
-
-
-
-    
+    public static Hashtable<String, Instant> retrieveValue (Hashtable<Integer,
+                                Hashtable<String, Instant>> hashtable, int key) {
+        if (hashtable.containsKey(key)) {
+            Hashtable<String, Instant> innerHashtable = hashtable.get(key);
+            return innerHashtable;
+        } else {
+            return null;
+        }
+    }   
 }
 
