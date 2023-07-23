@@ -20,11 +20,11 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.time.Instant;
 
 public class Servidor {
 
-    private Hashtable<Integer, String> hashTableKV;
-    
+    public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV;
     private int port;
     private String ipAddress;
     private Boolean isLeader;
@@ -138,9 +138,11 @@ public class Servidor {
         
         //Server socket utilizado nessa conexão TCP
         public static ServerSocket serverSocket;
+        public static Servidor server;
         /**
          * Construtor da classe
          * @param ss serverSocket utilizado pelo peer para realizar a conexão TCP 
+ * @param server
          */
         public ThreadServer(ServerSocket ss) {
             serverSocket = ss;
@@ -156,15 +158,24 @@ public class Servidor {
 
                     //thread para realizar trasferência
                     Thread th_accept = new Thread(() -> {
-                        
                         try {
                             // Cria um ObjectInputStream para receber objetos a partir do InputStream da conexão.
                             ObjectInputStream in = new ObjectInputStream(no.getInputStream());
                             // Recebe o objeto transmitido e realiza a deserialização
                             Mensagem msg = (Mensagem) in.readObject();
                             // Imprime mensagem recebida
-                            System.out.println("Mensagem recebida: " + msg);
-                            in.close();
+                            //System.out.println("Mensagem recebida: " + msg);
+                            //in.close();
+
+                            if(msg.getStatus().equals("PUT")){
+                                if(server.isLeader == true){
+                                    addData(server.hashTableKV, msg.getKey(), msg.getValue(), Instant.now());
+                                    /*TO DO: REPLICATE FUNCTION */
+                                }
+                                else{
+                                    /*TO DO: REPLICATE FUNCTION */
+                                }
+                            }
                         } catch (IOException | ClassNotFoundException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
@@ -178,6 +189,29 @@ public class Servidor {
                 System.err.println(e);
             }
         }
+    
+        public static void addData(Hashtable<Integer, Hashtable<String, Instant>> hashtable,
+                               int key, String value, Instant timestamp) {
+            // Verifica se a tabela hash interna (interna ao primeiro nível) já existe
+            if (!hashtable.containsKey(key)) {
+                hashtable.put(key, new Hashtable<>());
+            }
+
+            // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
+            Hashtable<String, Instant> innerHashtable = hashtable.get(key);
+            innerHashtable.put(value, timestamp);
+        }
+
+        public static Hashtable<String, Instant> retrieveValue (Hashtable<Integer,
+                                    Hashtable<String, Instant>> hashtable, int key) {
+            if (hashtable.containsKey(key)) {
+                Hashtable<String, Instant> innerHashtable = hashtable.get(key);
+                return innerHashtable;
+            } else {
+                return null;
+            }
+        }  
+    
     }
 
 
