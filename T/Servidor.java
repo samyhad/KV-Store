@@ -1,3 +1,5 @@
+package T;
+
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Scanner;
@@ -11,6 +13,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.ObjectInputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.InetAddress;
@@ -18,16 +21,24 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class Server {
+public class Servidor {
 
     private Hashtable<Integer, String> hashTableKV;
-    public static ArrayList<Address> servers = new ArrayList<>();
     
     private int port;
     private String ipAddress;
     private Boolean isLeader;
-    private static Address peer;
-    
+
+    public Servidor(int port, String ipAddress, Boolean isLeader) {
+        this.port = port;
+        this.ipAddress = ipAddress;
+        this.isLeader = isLeader;
+    }
+
+    public Servidor() {
+     
+    }
+
     public int getPort() {
         return port;
     }
@@ -52,7 +63,9 @@ public class Server {
 
     public static void main(String[] args) throws Exception{
         
-        Server server = new Server();
+        Servidor server = new Servidor();
+
+        ArrayList<Servidor> listaServidores = new ArrayList<>();
 
         Scanner scanner = new Scanner(System.in);
         System.out.println("------------------ SERVER ------------------");
@@ -76,9 +89,8 @@ public class Server {
                     String leaderIp = scanner.nextLine();
                     System.out.println("Qual a porta do líder?");
                     int leaderPort = scanner.nextInt();
-                    connectWithLeader(peer);
-                    Address peerLeader = new Address(leaderIp, leaderPort, true);
-                    servers.add(peerLeader);
+                    connectWithLeader(leaderIp, leaderPort);
+                    listaServidores.add(new Servidor(leaderPort, leaderIp, true));
                     rep = false;
                 } catch (IOException e) {
                     System.err.println("Não foi possível se conectar a esse lider, tente outro servidor");
@@ -92,41 +104,27 @@ public class Server {
         ServerSocket serverSocket = new ServerSocket();
         serverSocket.bind(endereco);
 
-        peer = new Address(server.ipAddress, server.port, server.getIsLeader());
+        listaServidores.add(new Servidor(server.port, server.ipAddress, server.getIsLeader()));
         
-        servers.add(peer);
-
-        while(true) {
-            //socket nó é o socket conectivo
-            // socket nó terá um porta designada pelo SP - entre 1-24 e 65535
-            //accept(): O método accept() escuta uma conexão e aceita se alguma for encontrada. 
-            //O accept() bloqueia todo o restante até que uma conexão seja feita, 
-            //ele fica em espera aguardando que alguém conecte. Quando alguma conexão é aceita ele 
-            //retorna um objeto Socket, que veremos mais à frente.
-            System.out.println("Esperando conexão com cliente");
-            Socket no = serverSocket.accept(); //bloqueante - fica nesse ponto esperando ação
-            System.out.println("Conexão aceita");
-            
-            //thread para atender novo nó
-            ThreadAtendimento thread = new ThreadAtendimento(no);
-            thread.start(); //executa a thread -> chamada ao método run()
-        }
+        
+        ThreadServer th = new ThreadServer(serverSocket);
+        th.start();
         
       
     }
 
-    public static void connectWithLeader(Address peer) throws IOException{
+    public static void connectWithLeader(String IP, int PORTA) throws IOException{
         // Criando o socket - conexão TCP entre os dois servidores
-        Socket socket_conn = new Socket(peer.IP, peer.PORTA);
+        Socket socket_conn = new Socket(IP, PORTA);
         socket_conn.close();
     }
 
-    public static void connectWithOthersServer (Address peer) throws IOException{
-        Socket socket_conn = new Socket(peer.IP, peer.PORTA);
+    public static void connectWithOthersServer (String IP, int PORTA) throws IOException{
+        Socket socket_conn = new Socket(IP, PORTA);
         socket_conn.close();
     }
 
-    public static Address findLeader(){
+    /*public static Address findLeader(){
 
         for (Address server : servers) {
             if (server.isLeader() == true) {
@@ -135,8 +133,55 @@ public class Server {
         }
 
         return null;
+    }*/
+    public static class ThreadServer extends Thread{
+        
+        //Server socket utilizado nessa conexão TCP
+        public static ServerSocket serverSocket;
+        /**
+         * Construtor da classe
+         * @param ss serverSocket utilizado pelo peer para realizar a conexão TCP 
+         */
+        public ThreadServer(ServerSocket ss) {
+            serverSocket = ss;
+        }
+        /**
+         * Rodando a thread que irá escutar as solicitações bem como realizar as transferências.
+         */
+        public void run(){
+            try{
+
+                while(true) {
+                    Socket no = serverSocket.accept(); // Espera por uma conexão
+
+                    //thread para realizar trasferência
+                    Thread th_accept = new Thread(() -> {
+                        
+                        try {
+                            // Cria um ObjectInputStream para receber objetos a partir do InputStream da conexão.
+                            ObjectInputStream in = new ObjectInputStream(no.getInputStream());
+                            // Recebe o objeto transmitido e realiza a deserialização
+                            Mensagem msg = (Mensagem) in.readObject();
+                            // Imprime mensagem recebida
+                            System.out.println("Mensagem recebida: " + msg);
+                            in.close();
+                        } catch (IOException | ClassNotFoundException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                    });
+                    // inicializa a thread
+                    th_accept.start();
+                }
+                
+            }catch(Exception e){
+                System.err.println(e);
+            }
+        }
     }
+
 
 
     
 }
+

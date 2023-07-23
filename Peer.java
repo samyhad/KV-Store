@@ -1,43 +1,41 @@
-
-import java.io.Serializable;
-import java.net.InetAddress;
-import java.util.ArrayList;
-
-public class Peer implements Serializable {
-    public InetAddress IP;
+public class Peer {
+    public String IP;
     public int PORTA;
-    public boolean isLeader;
 
-    
-    public Peer(InetAddress iP, int pORTA, boolean isLeader) {
+    public Peer(String iP, int pORTA) {
         IP = iP;
         PORTA = pORTA;
-        isLeader = isLeader;
-
     }
-    
-    public boolean isLeader() {
-        return isLeader;
-    }
-
-    public void setLeader(boolean isLeader) {
-        this.isLeader = isLeader;
-    }
-
-    public InetAddress getIP() {
+    public String getIP() {
         return IP;
     }
-
-    public void setIP(InetAddress iP) {
+    public void setIP(String iP) {
         IP = iP;
     }
-
     public int getPORTA() {
         return PORTA;
     }
-
     public void setPORTA(int pORTA) {
         PORTA = pORTA;
     }
-}
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        Peer other = (Peer) obj;
+        if (IP == null) {
+            if (other.IP != null)
+                return false;
+        } else if (!IP.equals(other.IP))
+            return false;
+        if (PORTA != other.PORTA)
+            return false;
+        return true;
+    }
     
+    
+}
