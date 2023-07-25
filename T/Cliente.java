@@ -23,7 +23,7 @@ import java.util.Scanner;
 
 public class Cliente {
     public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV;
-    public static ArrayList<Servidor> servers = new ArrayList<>();
+    public static ArrayList<InetSocketAddress> servers = new ArrayList<>();
     public static Scanner scanner;
     public static String IP;
     public static int PORTA;
@@ -94,12 +94,14 @@ public class Cliente {
                         String ipServer;
                         int portServer;
                         for(int n = 0; n < 3; n++){
+                            scanner.nextLine();
                             System.out.println("Qual o endereço de IP do "+(n+1)+"° servidor: ");
                             ipServer = scanner.nextLine();
                             System.out.println("Qual a porta do "+(n+1)+"° servidor: ");
                             portServer = scanner.nextInt();
-                            servers.add(new Servidor(portServer, ipServer, false));
+                            servers.add(new InetSocketAddress(ipServer, portServer));
                         }
+                        System.out.println(servers);
                         
                     }
                     
@@ -112,8 +114,8 @@ public class Cliente {
             //se o usuário digitou 1 [PUT]
             else if(input == 1){
                 //verificando se antes o usuário realizou requisição INIT
-                if(porta == -1 && address_str == null){
-                    System.out.println("Você ainda não se realizou a inicialização, faça isso e depois tente realizar o GET.");
+                if(porta == -2 && address_str == null){
+                    System.out.println("Você ainda não se realizou a inicialização, faça isso e depois tente realizar o PUT.");
                 } else {
                     // resgata informações necessárias para realizar o SEARCH
                     scanner.nextLine();
@@ -122,12 +124,12 @@ public class Cliente {
                     System.out.println("Qual o valor?");
                     String value = scanner.nextLine();
                     // Chamada para método que realiza requisição SEARCH
-                    try {
+                    /*try {
                         putRequest(key, value);
                     } catch (ClassNotFoundException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
-                    }
+                    }*/
                 }
                 
             }
@@ -179,7 +181,7 @@ public class Cliente {
         // Gerando um número aleatório entre 0 (inclusive) e o tamanho da lista (exclusive)
         int idxServerPicked = random.nextInt(tamanhoLista);
         // Servidor escolhido
-        Servidor server = servers.get(idxServerPicked);
+        InetSocketAddress server_end = servers.get(idxServerPicked);
         // Socket para conexão TCP entre cliente e servidor
         Socket s = new Socket(server.getIpAddress(), server.getPort());
         // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
