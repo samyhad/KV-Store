@@ -22,7 +22,7 @@ import java.util.Random;
 import java.util.Scanner;
 
 public class Cliente {
-    public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV;
+    public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV = new Hashtable<>();
     public static ArrayList<InetSocketAddress> servers = new ArrayList<>();
     public static Scanner scanner;
     public static String IP;
@@ -112,7 +112,9 @@ public class Cliente {
                 }  
             }
             //se o usuário digitou 1 [PUT]
+            
             else if(input == 1){
+                
                 //verificando se antes o usuário realizou requisição INIT
                 if(porta == -2 && address_str == null){
                     System.out.println("Você ainda não se realizou a inicialização, faça isso e depois tente realizar o PUT.");
@@ -121,15 +123,16 @@ public class Cliente {
                     scanner.nextLine();
                     System.out.println("Qual a chave?");
                     int key = scanner.nextInt();
+                    scanner.nextLine();
                     System.out.println("Qual o valor?");
                     String value = scanner.nextLine();
                     // Chamada para método que realiza requisição SEARCH
-                    /*try {
+                    try {
                         putRequest(key, value);
                     } catch (ClassNotFoundException e) {
                         // TODO Auto-generated catch block
                         e.printStackTrace();
-                    }*/
+                    }
                 }
                 
             }
@@ -183,7 +186,7 @@ public class Cliente {
         // Servidor escolhido
         InetSocketAddress server_end = servers.get(idxServerPicked);
         // Socket para conexão TCP entre cliente e servidor
-        Socket s = new Socket(server.getIpAddress(), server.getPort());
+        Socket s = new Socket(server_end.getHostString(), server_end.getPort());
         // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
         ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
         // Serializa o objeto e envia para o servidor
@@ -197,7 +200,7 @@ public class Cliente {
             System.out.println("GET key: ["
             + msgGet.getKey()+"] value: ["
             + msgReturn.getValue()+"] obtido do servidor ["
-            + server.getIpAddress()+ ":" + server.getPort() +"], meu timestamp ["
+            + server_end.getHostString() + ":" + server_end.getPort() +"], meu timestamp ["
             + msgGet.gettimestamp() +"] e do servidor ["
             + msgReturn.gettimestamp()+"]");
         } else if (msgReturn.getStatus().equals("TRY_OTHER_SERVER_OR_LATER")){
@@ -206,7 +209,7 @@ public class Cliente {
                 System.out.println("GET key: ["
                 + msgGet.getKey()+"] value: ["
                 + msgReturn.getValue()+"] obtido do servidor ["
-                + server.getIpAddress()+ ":" + server.getPort() +"], meu timestamp ["
+                + server_end.getHostString() + ":" + server_end.getPort()  +"], meu timestamp ["
                 + msgGet.gettimestamp() +"] e do servidor ["
                 + msgReturn.gettimestamp()+"]");
             } else {
@@ -233,9 +236,9 @@ public class Cliente {
         // Gerando um número aleatório entre 0 (inclusive) e o tamanho da lista (exclusive)
         int idxServerPicked = random.nextInt(tamanhoLista);
         // Servidor escolhido
-        Servidor server = servers.get(idxServerPicked);
+        InetSocketAddress server_end = servers.get(idxServerPicked);
         // Socket para conexão TCP entre cliente e servidor
-        Socket s = new Socket(server.getIpAddress(), server.getPort());
+        Socket s = new Socket(server_end.getHostName(), server_end.getPort());
         // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
         ObjectOutputStream out = new ObjectOutputStream(s.getOutputStream());
         // Serializa o objeto e envia para o servidor
@@ -251,10 +254,10 @@ public class Cliente {
                 + msgPut.getKey()+"] value ["
                 + msgPut.getValue() +"] timestamp ["
                 + msgReturn.gettimestamp()+"] realizada no servidor ["
-                + server.getIpAddress()+":"
-                + server.getPort()+"]");
+                + server_end.getHostString()+":"
+                + server_end.getPort()+"]");
             // Adicionar KV à nossa hashtable local
-            addData(hashTableKV, key, value, msgReturn.gettimestamp());
+            addData(key, value, msgReturn.gettimestamp());
         } else {
             System.out.println("Operação de PUT falhou! Tente novamente depois.");
         }
@@ -267,16 +270,14 @@ public class Cliente {
         
     }
 
-    public static void addData(Hashtable<Integer, Hashtable<String, Instant>> hashtable,
-                               int key, String value, Instant timestamp) {
+    public static void addData(int key, String value, Instant timestamp) {
         // Verifica se a tabela hash interna (interna ao primeiro nível) já existe
-        if (!hashtable.containsKey(key)) {
-            hashtable.put(key, new Hashtable<>());
-        }
-
+        hashTableKV.put(key, new Hashtable<>());
         // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
-        Hashtable<String, Instant> innerHashtable = hashtable.get(key);
+        Hashtable<String, Instant> innerHashtable = hashTableKV.get(key);
         innerHashtable.put(value, timestamp);
+
+        System.out.println(hashTableKV);
     }
 
     public static Hashtable<String, Instant> retrieveValue (Hashtable<Integer,

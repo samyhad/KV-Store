@@ -10,7 +10,7 @@ public class Mensagem implements Serializable{
     private Instant timestamp;
     private String status;
     
-    //Construtor para o PUT (cliente)
+    //Construtor para REPLICATION
     public Mensagem(String type, int key, String value, Instant timestamp) {
         this.type = type;
         this.key = key;
@@ -18,7 +18,7 @@ public class Mensagem implements Serializable{
         this.timestamp = timestamp;
     }
 
-    //Construtor para o 
+    //Construtor para PUT
     public Mensagem(String type, int key, String value) {
         this.type = type;
         this.key = key;
@@ -45,6 +45,11 @@ public class Mensagem implements Serializable{
         this.timestamp = timestamp;
     }
     
+    //Construtor para o REPLICATE_OK
+    public Mensagem(String status) {
+        this.status = status;
+    }
+
     public String getType() {
         return type;
     }
