@@ -36,34 +36,9 @@ public class Servidor {
     private static String ipAddress;
     private static Boolean isLeader;
 
-    /*public Servidor(int port, String ipAddress, Boolean isLeader) {
-        this.port = port;
-        this.ipAddress = ipAddress;
-        this.isLeader = isLeader;
-    }*/
-
     public Servidor() {
      
-    }
-    /*public int getPort() {
-        return port;
-    }
-    public void setPort(int port) {
-        this.port = port;
-    }
-    public String getIpAddress() {
-        return ipAddress;
-    }
-    public void setIpAddress(String ipAddress) {
-        this.ipAddress = ipAddress;
-    }
-    public Boolean getIsLeader() {
-        return isLeader;
-    }
-    public void setIsLeader(Boolean isLeader) {
-        this.isLeader = isLeader;
-    }*/
-    
+    }    
     public static void main(String[] args) throws Exception{
         
         Servidor server = new Servidor();
@@ -166,16 +141,6 @@ public class Servidor {
         return null;
     }
 
-    /*public static Address findLeader(){
-
-        for (Address server : servers) {
-            if (server.isLeader() == true) {
-                return server;
-            }
-        }
-
-        return null;
-    }*/
     public static class ThreadServer extends Thread{
         
         //Server socket utilizado nessa conexão TCP
@@ -184,7 +149,7 @@ public class Servidor {
         /**
          * Construtor da classe
          * @param ss serverSocket utilizado pelo peer para realizar a conexão TCP 
- * @param server
+         * @param server
          */
         public ThreadServer(ServerSocket ss, Servidor server) {
             serverSocket = ss;
@@ -294,7 +259,19 @@ public class Servidor {
                                
                             } else if (msg.getType().equals("GET")) {
 
-                                System.out.println("Cliente [IP]:[porta] GET key:[key] ts:[timestamp]. Meu ts é [timestamp_da_key], portanto devolvendo [valor ou erro]");
+                                Hashtable<String, Instant> retrieveValue = retrieveValue(msg.getKey());
+
+                                if(retrieveValue.get(0).isAfter(msg.gettimestamp())){
+                                    
+                                }
+
+                                System.out.println("Cliente ["
+                                +"IP"+"]:["
+                                +"porta"+"] GET key:["
+                                +"key"+"] ts:["
+                                +"timestamp"+"]. Meu ts é ["
+                                +"timestamp_da_key"+"], portanto devolvendo ["
+                                +"valor ou erro"+"]");
 
                             } else if (msg.getType().equals("CONN")){
                                 if(server.isLeader == true){
