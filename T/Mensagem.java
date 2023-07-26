@@ -39,8 +39,8 @@ public class Mensagem implements Serializable{
     }
 
     //Construtor para o retorno do GET (servidor)
-    public Mensagem(String type, String value, Instant timestamp) {
-        this.type = type;
+    public Mensagem(String status, String value, Instant timestamp) {
+        this.status = status;
         this.value = value;
         this.timestamp = timestamp;
     }

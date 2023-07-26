@@ -2,27 +2,13 @@ package T;
 
 import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-
-import org.omg.CosNaming.NamingContextExtPackage.AddressHelper;
-
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
-import java.io.Serializable;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -31,7 +17,8 @@ import java.time.Instant;
 public class Servidor {
 
     private static Hashtable<InetSocketAddress, Boolean> hashTableServer = new Hashtable<>();
-    private static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV = new Hashtable<>();
+    //private static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV = new Hashtable<>();
+    private static Hashtable<Integer, Object[]> hashTableKV = new Hashtable<>();
     private static int port;
     private static String ipAddress;
     private static Boolean isLeader;
@@ -153,7 +140,7 @@ public class Servidor {
          */
         public ThreadServer(ServerSocket ss, Servidor server) {
             serverSocket = ss;
-            server = server;
+            //server = server;
         }
         /**
          * Rodando a thread que irá escutar as solicitações bem como realizar as transferências.
@@ -172,14 +159,21 @@ public class Servidor {
                             // Recebe o objeto transmitido e realiza a deserialização
                             Mensagem msg = (Mensagem) in.readObject();
                             if(msg.getType().equals("PUT")){
-                                if(server.isLeader == true){
+                                // Caso o servidor seja líder
+                                if(isLeader == true){
+                                    // Pega o timestamp do servidor
                                     Instant timesInstant = Instant.now();
+                                    // Cria uma mensagem para replicar essa solicitação de PUT para os servidores de suporte
                                     Mensagem msgReplication = new Mensagem("REPLICATION", msg.getKey(), msg.getValue(), timesInstant);
-                                    
-                                    Hashtable<InetSocketAddress, Boolean> serversToRep = findSupportServer();
-                                    int t = serversToRep.size();
+                                    // Encontra os servidores de suporte
+                                    Hashtable<InetSocketAddress, Boolean> serversToReplicate = findSupportServer();
+                                    // Salva o número de servidores de suporte
+                                    int t = serversToReplicate.size();
+                                    // cria uma variável de contagem
                                     int cont = 0;
-                                    for (InetSocketAddress chave : serversToRep.keySet()) {
+                                    // loop para enviar a mensagem de replicação para cada um dos servidores de suporte
+                                    for (InetSocketAddress chave : serversToReplicate.keySet()) {
+                                        // Cria socket com conexão entre o líder e o servidor de suporte
                                         Socket sRep = new Socket(chave.getHostString(), chave.getPort());    
                                         // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
                                         ObjectOutputStream outServ = new ObjectOutputStream(sRep.getOutputStream());
@@ -189,17 +183,19 @@ public class Servidor {
                                         ObjectInputStream inServ = new ObjectInputStream(sRep.getInputStream());
                                         // Recebe o objeto transmitido e realiza a deserialização
                                         Mensagem msgReturn = (Mensagem) inServ.readObject();
+                                        // Verifica se o servidor de suporte conseguiu replicar essa KV
                                         if(msgReturn.getStatus().equals("REPLICATION_OK")){
-                                            cont = cont + 1;
+                                            cont = cont + 1; // add +1 no nosso contador
                                         }
+                                        // Fecha fluxos de entrada, saída e socket da comunicação entre servidor líder e de suporte
                                         outServ.close();
                                         inServ.close();
                                         sRep.close();
                                     }
+                                    // Verifica se todos os servidores replicaram corretamente a KV
                                     if(cont == t){
-                                        // Adiciona essa chave-valor ao Hashtable local do servidor
+                                        // Adiciona essa chave-valor ao Hashtable do líder
                                         addData(msg.getKey(), msg.getValue(), timesInstant);
-                                        // Imprime no terminal do líder que a operação de PUT foi bem sucedida
                                         //TO DO
                                         System.out.println("Cliente ["
                                         +"IP"+"]:["
@@ -211,6 +207,12 @@ public class Servidor {
                                         ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
                                         // Serializa o objeto e envia para o servidor
                                         out.writeObject(new Mensagem("PUT_OK", timesInstant));
+                                        out.close();
+
+                                    } else {
+                                        // Se não conseguirmos replicar o PUT para todos os servidores de suporte enviamos uma mensagem de erro
+                                        ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                        out.writeObject(new Mensagem("PUT_NOK"));
                                         out.close();
 
                                     }
@@ -259,39 +261,52 @@ public class Servidor {
                                
                             } else if (msg.getType().equals("GET")) {
 
-                                Hashtable<String, Instant> retrieveValue = retrieveValue(msg.getKey());
-
-                                if(retrieveValue.get(0).isAfter(msg.gettimestamp())){
-                                    
+                                Object[] retrivedObject = retrieveValue(msg.getKey());
+                                String value = (String) retrivedObject[0];
+                                Instant timestamp = (Instant) retrivedObject[1];
+                                String devolutiva;
+                                if(value.equals(null)){
+                                    //retornar null
+                                    devolutiva = null;
+                                    // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
+                                    ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                    // Serializa o objeto e envia para o servidor
+                                    out.writeObject(new Mensagem("TRY_OTHER_SERVER_OR_LATER", devolutiva, null));
+                                    //fechando fluxo da saida de dados
+                                    out.close();
+                                } else {
+                                    if (msg.gettimestamp() == null
+                                        || timestamp.equals(msg.gettimestamp())
+                                        || timestamp.isAfter(msg.gettimestamp())){
+                                        // retorna o valor que encontramos
+                                        devolutiva = value;
+                                        // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
+                                        ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                        // Serializa o objeto e envia para o servidor
+                                        out.writeObject(new Mensagem("GET_OK", devolutiva, timestamp));
+                                        //fechando fluxo da saida de dados
+                                        out.close();
+                                    } else {
+                                        // retorna erro
+                                        devolutiva = "TRY_OTHER_SERVER_OR_LATER";
+                                        ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                        // Serializa o objeto e envia para o servidor
+                                        out.writeObject(new Mensagem(devolutiva, null, null));
+                                        //fechando fluxo da saida de dados
+                                        out.close();
+                                    }
                                 }
+                                
 
                                 System.out.println("Cliente ["
                                 +"IP"+"]:["
                                 +"porta"+"] GET key:["
-                                +"key"+"] ts:["
-                                +"timestamp"+"]. Meu ts é ["
-                                +"timestamp_da_key"+"], portanto devolvendo ["
-                                +"valor ou erro"+"]");
+                                + msg.getKey()+"] ts:["
+                                + msg.gettimestamp() +"]. Meu ts é ["
+                                + timestamp +"], portanto devolvendo ["
+                                + devolutiva +"]");
 
-                            } else if (msg.getType().equals("CONN")){
-                                if(server.isLeader == true){
-                                    hashTableServer.put(new InetSocketAddress(msg.getValue(), msg.getKey()), false);
-                                    System.out.println("Realizando conexão com o servidor requisitante");
-                                    System.out.println(hashTableServer);
-                                    // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
-                                    ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
-                                    // Serializa o objeto e envia para o servidor
-                                    out.writeObject(new Mensagem("CONN_OK"));
-                                    out.close();
-                                } else {
-                                    // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
-                                    ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
-                                    // Serializa o objeto e envia para o servidor
-                                    out.writeObject(new Mensagem("CONN_NOK"));
-                                    out.close();
-                                }
-                                
-                            }
+                            } 
                         } catch (IOException | ClassNotFoundException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
@@ -307,20 +322,23 @@ public class Servidor {
         }
     
         public static void addData(int key, String value, Instant timestamp) {
-            // Verifica se a tabela hash interna (interna ao primeiro nível) já existe
+            /*// Verifica se a tabela hash interna (interna ao primeiro nível) já existe
             if (!server.hashTableKV.containsKey(key)) {
                 server.hashTableKV.put(key, new Hashtable<>());
             }
 
             // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
             Hashtable<String, Instant> innerHashtable = server.hashTableKV.get(key);
-            innerHashtable.put(value, timestamp);
+            innerHashtable.put(value, timestamp);*/
+            hashTableKV.put(key, new Object[] {value, timestamp});
         }
 
-        public static Hashtable<String, Instant> retrieveValue (int key) {
-            if (server.hashTableKV.containsKey(key)) {
-                Hashtable<String, Instant> innerHashtable = server.hashTableKV.get(key);
-                return innerHashtable;
+        public static Object[] retrieveValue (int key) {
+            if (hashTableKV.containsKey(key)) {
+                Object[] retrivedObject = hashTableKV.get(key);
+                String value = (String) retrivedObject[0];
+                Instant timestamp = (Instant) retrivedObject[1];
+                return new Object[] {value, timestamp};
             } else {
                 return null;
             }
