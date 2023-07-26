@@ -1,6 +1,7 @@
 package T;
 
 import java.io.Serializable;
+import java.net.InetSocketAddress;
 import java.time.Instant;
 
 public class Mensagem implements Serializable{
@@ -9,6 +10,7 @@ public class Mensagem implements Serializable{
     private String value;
     private Instant timestamp;
     private String status;
+    private InetSocketAddress address;
     
     //Construtor para REPLICATION
     public Mensagem(String type, int key, String value, Instant timestamp) {
@@ -19,10 +21,11 @@ public class Mensagem implements Serializable{
     }
 
     //Construtor para PUT
-    public Mensagem(String type, int key, String value) {
+    public Mensagem(String type, int key, String value, InetSocketAddress address) {
         this.type = type;
         this.key = key;
         this.value = value;
+        this.address = address;
     }
 
     //Construtor para o retorno do PUT (servidor)
@@ -32,10 +35,11 @@ public class Mensagem implements Serializable{
     }
 
     //Construtor para o GET (cliente)
-    public Mensagem(String type, int key, Instant timestamp) {
+    public Mensagem(String type, int key, Instant timestamp, InetSocketAddress address) {
         this.type = type;
         this.key = key;
         this.timestamp = timestamp;
+        this.address = address;
     }
 
     //Construtor para o retorno do GET (servidor)
@@ -45,9 +49,16 @@ public class Mensagem implements Serializable{
         this.timestamp = timestamp;
     }
     
-    //Construtor para o REPLICATE_OK
+    //Construtor para o REPLICATE_OK, CONN_OK, CONN_NOK
     public Mensagem(String status) {
         this.status = status;
+    }
+
+    //Construtor para o CONN
+    public Mensagem(String type, int port, String ipAddress) {
+        this.type = type;
+        this.key = port;
+        this.value = ipAddress;
     }
 
     public String getType() {
@@ -74,8 +85,14 @@ public class Mensagem implements Serializable{
     public void settimestamp(Instant timestamp) {
         this.timestamp = timestamp;
     }
+    public InetSocketAddress getAddress() {
+        return address;
+    }
 
-
+    public void setAddress(InetSocketAddress address) {
+        this.address = address;
+    }
+        
     @Override
     public boolean equals(Object obj) {
         if (this == obj)

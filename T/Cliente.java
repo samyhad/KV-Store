@@ -101,7 +101,7 @@ public class Cliente {
                             portServer = scanner.nextInt();
                             servers.add(new InetSocketAddress(ipServer, portServer));
                         }
-                        System.out.println(servers);
+                        //System.out.println(servers);
                         
                     }
                     
@@ -116,7 +116,7 @@ public class Cliente {
             else if(input == 1){
                 
                 //verificando se antes o usuário realizou requisição INIT
-                if(porta == -2 && address_str == null){
+                if(porta == -1 && address_str == null){
                     System.out.println("Você ainda não se realizou a inicialização, faça isso e depois tente realizar o PUT.");
                 } else {
                     // resgata informações necessárias para realizar o SEARCH
@@ -176,7 +176,7 @@ public class Cliente {
     private static void getRequest(int key, Instant timestamp) throws UnknownHostException, IOException, ClassNotFoundException {
         
         // Mensagem que queremos enviar por PUT 
-        Mensagem msgGet = new Mensagem("GET", key, timestamp);
+        Mensagem msgGet = new Mensagem("GET", key, timestamp, new InetSocketAddress(IP, PORTA));
         // Recuperando tamanho da lista
         int tamanhoLista = servers.size();
         // Crie um objeto da classe Random
@@ -228,7 +228,7 @@ public class Cliente {
     private static void putRequest(int key, String value) throws UnknownHostException, IOException, ClassNotFoundException {
         
         // Mensagem que queremos enviar por PUT 
-        Mensagem msgPut = new Mensagem("PUT", key, value);
+        Mensagem msgPut = new Mensagem("PUT", key, value, new InetSocketAddress(IP, PORTA));
         // Recuperando tamanho da lista
         int tamanhoLista = servers.size();
         // Crie um objeto da classe Random

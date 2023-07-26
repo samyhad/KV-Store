@@ -17,7 +17,6 @@ import java.time.Instant;
 public class Servidor {
 
     private static Hashtable<InetSocketAddress, Boolean> hashTableServer = new Hashtable<>();
-    //private static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV = new Hashtable<>();
     private static Hashtable<Integer, Object[]> hashTableKV = new Hashtable<>();
     private static int port;
     private static String ipAddress;
@@ -28,10 +27,6 @@ public class Servidor {
     }    
     public static void main(String[] args) throws Exception{
         
-        Servidor server = new Servidor();
-
-        //ArrayList<Servidor> listaServidores = new ArrayList<>();
-
         Scanner scanner = new Scanner(System.in);
         System.out.println("------------------ SERVER ------------------");
         System.out.println("Qual o IP desse servidor?");
@@ -53,33 +48,32 @@ public class Servidor {
                     String leaderIp = scanner.nextLine();
                     System.out.println("Qual a porta do líder?");
                     int leaderPort = scanner.nextInt();
-                    connectWithLeader(leaderIp, leaderPort);
-                    //listaServidores.add(new Servidor(leaderPort, leaderIp, true));
-                    hashTableServer.put(new InetSocketAddress(leaderIp, leaderPort), true);
-                    rep = false;
+                    // Verifica se é possível se conectar a esse líder
+                    if (connectWithLeader(leaderIp, leaderPort)){
+                        rep = false;
+                        hashTableServer.put(new InetSocketAddress(leaderIp, leaderPort), true);
+                    } else {
+                        System.out.println("Não foi possível se conectar a esse lider, tente outro servidor");
+                    }
+                    
                 } catch (IOException e) {
-                    System.err.println("Não foi possível se conectar a esse lider, tente outro servidor");
                     // Em caso de falha, o loop continuará e o usuário poderá digitar outro endereço.
+                    System.err.println("Não foi possível se conectar a esse lider, tente outro servidor");
                 }
             }
-            
         }
 
         InetSocketAddress endereco = new InetSocketAddress(ipAddress, port);
         ServerSocket serverSocket = new ServerSocket();
         serverSocket.bind(endereco);
-        //listaServidores.add(new Servidor(server.port, server.ipAddress, server.getIsLeader()));
-        //new InetSocketAddress(server.ipAddress, server.port), 
         hashTableServer.put(endereco, isLeader);
         
-        
-        ThreadServer th = new ThreadServer(serverSocket, server);
+        ThreadServer th = new ThreadServer(serverSocket);
         th.start();
         
-      
     }
 
-    public static void connectWithLeader(String IpServer, int PortaServer) throws IOException, ClassNotFoundException{
+    public static Boolean connectWithLeader(String IpServer, int PortaServer) throws IOException, ClassNotFoundException{
         //Mensagem de conexão com o líder
         Mensagem msgConn = new Mensagem("CONN", port, ipAddress); //TYPE, K, V
         // Criando o socket - conexão TCP entre os dois servidores
@@ -93,20 +87,16 @@ public class Servidor {
         // Recebe o objeto transmitido e realiza a deserialização
         Mensagem msg = (Mensagem) in.readObject();
         
-        if(msg.getStatus().equals("CONN_OK")){
-            System.out.println("Realizando conexão com o servidor líder");
-        } else {
-            System.out.println("Falha ao se conectar, esse fornecedor não é um líder");
-        }
         in.close();
         out.close();
         socket_conn.close();
-        
-    }
 
-    public static void connectWithOthersServer (String IP, int PORTA) throws IOException {
-        Socket socket_conn = new Socket(IP, PORTA);
-        socket_conn.close();
+        if(!msg.getStatus().equals("CONN_OK")){
+            return false;
+        } else {
+            return true;
+        }
+        
     }
 
     public static Hashtable<InetSocketAddress, Boolean> findSupportServer () throws IOException {
@@ -132,16 +122,17 @@ public class Servidor {
         
         //Server socket utilizado nessa conexão TCP
         public static ServerSocket serverSocket;
-        public static Servidor server;
+        //public static Servidor server;
         /**
          * Construtor da classe
          * @param ss serverSocket utilizado pelo peer para realizar a conexão TCP 
          * @param server
          */
-        public ThreadServer(ServerSocket ss, Servidor server) {
+        public ThreadServer(ServerSocket ss) {
             serverSocket = ss;
             //server = server;
         }
+        
         /**
          * Rodando a thread que irá escutar as solicitações bem como realizar as transferências.
          */
@@ -198,8 +189,8 @@ public class Servidor {
                                         addData(msg.getKey(), msg.getValue(), timesInstant);
                                         //TO DO
                                         System.out.println("Cliente ["
-                                        +"IP"+"]:["
-                                        +"PORTA"+"] PUT key:["
+                                        + msg.getAddress().getHostString() +"]:["
+                                        + msg.getAddress().getPort() +"] PUT key:["
                                         + msg.getKey()+"] value:["
                                         +msg.getValue()+"]");
 
@@ -262,10 +253,9 @@ public class Servidor {
                             } else if (msg.getType().equals("GET")) {
 
                                 Object[] retrivedObject = retrieveValue(msg.getKey());
-                                String value = (String) retrivedObject[0];
-                                Instant timestamp = (Instant) retrivedObject[1];
                                 String devolutiva;
-                                if(value.equals(null)){
+                                Instant timestamp = null;
+                                if(retrivedObject == null){
                                     //retornar null
                                     devolutiva = null;
                                     // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
@@ -275,6 +265,8 @@ public class Servidor {
                                     //fechando fluxo da saida de dados
                                     out.close();
                                 } else {
+                                    String value = (String) retrivedObject[0];
+                                    timestamp = (Instant) retrivedObject[1];
                                     if (msg.gettimestamp() == null
                                         || timestamp.equals(msg.gettimestamp())
                                         || timestamp.isAfter(msg.gettimestamp())){
@@ -295,18 +287,35 @@ public class Servidor {
                                         //fechando fluxo da saida de dados
                                         out.close();
                                     }
-                                }
-                                
+                                }                                
 
                                 System.out.println("Cliente ["
-                                +"IP"+"]:["
-                                +"porta"+"] GET key:["
+                                + msg.getAddress().getHostString() +"]:["
+                                + msg.getAddress().getPort() +"] GET key:["
                                 + msg.getKey()+"] ts:["
                                 + msg.gettimestamp() +"]. Meu ts é ["
                                 + timestamp +"], portanto devolvendo ["
                                 + devolutiva +"]");
 
-                            } 
+                            } else if (msg.getType().equals("CONN")) {
+                                if(isLeader == true){
+                                    hashTableServer.put(new InetSocketAddress(msg.getValue(), msg.getKey()), false);
+                                    System.out.println("Realizando conexão com o servidor requisitante");
+                                    System.out.println(hashTableServer);
+                                    // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
+                                    ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                    // Serializa o objeto e envia para o servidor
+                                    out.writeObject(new Mensagem("CONN_OK"));
+                                    out.close();
+                                } else {
+                                    // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
+                                    ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
+                                    // Serializa o objeto e envia para o servidor
+                                    out.writeObject(new Mensagem("CONN_NOK"));
+                                    out.close();
+                                }
+
+                            }
                         } catch (IOException | ClassNotFoundException e) {
                             // TODO Auto-generated catch block
                             e.printStackTrace();
@@ -322,20 +331,17 @@ public class Servidor {
         }
     
         public static void addData(int key, String value, Instant timestamp) {
-            /*// Verifica se a tabela hash interna (interna ao primeiro nível) já existe
-            if (!server.hashTableKV.containsKey(key)) {
-                server.hashTableKV.put(key, new Hashtable<>());
-            }
-
-            // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
-            Hashtable<String, Instant> innerHashtable = server.hashTableKV.get(key);
-            innerHashtable.put(value, timestamp);*/
+            // Adiciona o valor na tabela hash local
             hashTableKV.put(key, new Object[] {value, timestamp});
         }
 
         public static Object[] retrieveValue (int key) {
+            // Recupera o valor associado a essa chave bem como o timestamp
+
+            // Verifica se temos essa chave dentro da nossa hashtable
             if (hashTableKV.containsKey(key)) {
                 Object[] retrivedObject = hashTableKV.get(key);
+                // Retorna um objeto com valor e timestamp associado a essa key
                 String value = (String) retrivedObject[0];
                 Instant timestamp = (Instant) retrivedObject[1];
                 return new Object[] {value, timestamp};
