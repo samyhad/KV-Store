@@ -1,19 +1,12 @@
 package T;
-
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.rmi.NotBoundException;
-import java.rmi.server.ServerNotActiveException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -22,7 +15,7 @@ import java.util.Random;
 import java.util.Scanner;
 
 public class Cliente {
-    public static Hashtable<Integer, Hashtable<String, Instant>> hashTableKV = new Hashtable<>();
+    public static Hashtable<Integer,  Object[]> hashTableKV = new Hashtable<>();
     public static ArrayList<InetSocketAddress> servers = new ArrayList<>();
     public static Scanner scanner;
     public static String IP;
@@ -80,7 +73,8 @@ public class Cliente {
                         address_str = scanner.nextLine();
                         System.out.println("Qual a porta desse peer?");
                         porta = scanner.nextInt();
-
+                        IP = address_str;
+                        PORTA = porta;
                         
                         //cria uma variável InetSocketAddress para registrar endereço e porta do peer
                         InetSocketAddress endereco = new InetSocketAddress(address_str, porta);
@@ -148,8 +142,9 @@ public class Cliente {
                     System.out.println("Informe a chave: ");
                     int key = scanner.nextInt();
                     Instant timestamp = null;
-                    if(retrieveValue(hashTableKV, key) != null){
-                        timestamp = retrieveValue(hashTableKV, key).values().stream().findFirst().orElse(null);
+                    if(retrieveValue(key) != null){
+                        timestamp = (Instant) retrieveValue(key)[1];
+                        //timestamp = retrieveValue(hashTableKV, key).values().stream().findFirst().orElse(null);
                     }
                     
                     getRequest(key, timestamp);
@@ -204,12 +199,13 @@ public class Cliente {
             + msgGet.gettimestamp() +"] e do servidor ["
             + msgReturn.gettimestamp()+"]");
         } else if (msgReturn.getStatus().equals("TRY_OTHER_SERVER_OR_LATER")){
-            if(retrieveValue(hashTableKV, msgGet.getKey()) != null) {
-                String old_value = retrieveValue(hashTableKV, msgGet.getKey()).keySet().stream().findFirst().orElse(null);
+            if(retrieveValue(key) != null) {
+                String old_value = (String) retrieveValue(key)[0];
                 System.out.println("GET key: ["
                 + msgGet.getKey()+"] value: ["
-                + msgReturn.getValue()+"] obtido do servidor ["
-                + server_end.getHostString() + ":" + server_end.getPort()  +"], meu timestamp ["
+                + old_value+"] obtido do servidor ["
+                + server_end.getHostString() + ":" 
+                + server_end.getPort()  +"], meu timestamp ["
                 + msgGet.gettimestamp() +"] e do servidor ["
                 + msgReturn.gettimestamp()+"]");
             } else {
@@ -271,6 +267,26 @@ public class Cliente {
     }
 
     public static void addData(int key, String value, Instant timestamp) {
+        // Adiciona o valor na tabela hash local
+        hashTableKV.put(key, new Object[] {value, timestamp});
+    }
+
+    public static Object[] retrieveValue (int key) {
+        // Recupera o valor associado a essa chave bem como o timestamp
+
+        // Verifica se temos essa chave dentro da nossa hashtable
+        if (hashTableKV.containsKey(key)) {
+            Object[] retrivedObject = hashTableKV.get(key);
+            // Retorna um objeto com valor e timestamp associado a essa key
+            String value = (String) retrivedObject[0];
+            Instant timestamp = (Instant) retrivedObject[1];
+            return new Object[] {value, timestamp};
+        } else {
+            return null;
+        }
+    } 
+
+    /*public static void addData(int key, String value, Instant timestamp) {
         // Verifica se a tabela hash interna (interna ao primeiro nível) já existe
         hashTableKV.put(key, new Hashtable<>());
         // Adiciona o valor na tabela hash interna (interna ao primeiro nível)
@@ -288,6 +304,7 @@ public class Cliente {
         } else {
             return null;
         }
-    }   
+    }  */
+
 }
 

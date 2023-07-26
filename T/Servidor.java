@@ -192,7 +192,7 @@ public class Servidor {
                                         + msg.getAddress().getHostString() +"]:["
                                         + msg.getAddress().getPort() +"] PUT key:["
                                         + msg.getKey()+"] value:["
-                                        +msg.getValue()+"]");
+                                        + msg.getValue()+"]");
 
                                         // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
                                         ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
@@ -211,7 +211,7 @@ public class Servidor {
                                 }
                                 else{
                                     System.out.println("Encaminhando PUT key:["+msg.getKey()+"] value:["+msg.getValue()+"]");
-                                    Mensagem msgSendPutToLeader = new Mensagem("PUT", msg.getKey(), msg.getValue());
+                                    Mensagem msgSendPutToLeader = new Mensagem("PUT", msg.getKey(), msg.getValue(), msg.getAddress());
                                     
                                     InetSocketAddress lider = findLeader();
                                     Socket s = new Socket(lider.getHostString(), lider.getPort());
@@ -300,8 +300,8 @@ public class Servidor {
                             } else if (msg.getType().equals("CONN")) {
                                 if(isLeader == true){
                                     hashTableServer.put(new InetSocketAddress(msg.getValue(), msg.getKey()), false);
-                                    System.out.println("Realizando conexão com o servidor requisitante");
-                                    System.out.println(hashTableServer);
+                                    //System.out.println("Realizando conexão com o servidor requisitante");
+                                    //System.out.println(hashTableServer);
                                     // Cria um ObjectOutputStream para enviar objetos a partir do OutputStream da conexão.
                                     ObjectOutputStream out = new ObjectOutputStream(no.getOutputStream());
                                     // Serializa o objeto e envia para o servidor
